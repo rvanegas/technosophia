@@ -11,12 +11,14 @@
 # project's root, and the shared ones read their settings from
 # $TS_ROOT/bin/ts.env.
 #
-# Only this file goes on PATH, so the script names stay plain without
-# entering the executable namespace.
+# Only bin/, holding this file, goes on PATH, so the script names stay plain
+# without entering the executable namespace.
 
 set -euo pipefail
 
-shared="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/bin"
+# bin/ holds only what goes on PATH, which is this; the shared scripts are in
+# libexec/, reached through it.
+shared="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)/libexec"
 root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 
 # The first comment line after the shebang and the bare `#`.

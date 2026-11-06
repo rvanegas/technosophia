@@ -23,13 +23,13 @@ otherwise. An exception names the practice it departs from and says why.
 
 The shared scripts run through one command, put on PATH once:
 
-    export PATH="$HOME/src/technosophia:$PATH"
+    export PATH="$HOME/src/technosophia/bin:$PATH"
 
 `ts <name>` runs the project's own `bin/<name>` if there is one, else the
-shared `bin/<name>` here, with the project's root in `TS_ROOT`; `ts` alone
+shared `libexec/<name>` here, with the project's root in `TS_ROOT`; `ts` alone
 lists both. A project's script wins: that is how it does something
-otherwise. Only `ts` enters the executable namespace, so the script names
-stay plain.
+otherwise. `bin/` holds `ts` alone, so it is the one command that enters the
+executable namespace, and the script names in `libexec/` stay plain.
 
 A shared script reads the project's settings from `bin/ts.env` (`KEY=value`
 lines; each script's `--help` names the ones it uses), and runs the
@@ -50,4 +50,4 @@ them. Whatever belongs to one project stays in that project.
 | `INSTRUCTIONS.md` | When adding to a project's agent instructions |
 | `SERVICES.md` | When changing a service's config, secrets, health, deploy, or a call between services |
 | `CLIENTS.md` | When a project ships an installed client: wire changes, the compatibility floor, store builds |
-| `ts`, `bin/`, `lib/` | The shared scripts |
+| `bin/ts`, `libexec/`, `lib/` | The dispatcher, the shared scripts, and what they source |

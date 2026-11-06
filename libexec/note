@@ -103,6 +103,7 @@ cmd_new() {
   local s path
   s="$(expected_slug "$dir" "$title")"
   [[ -n "$s" ]] || die "that title slugifies to nothing"
+  [[ -d "$planning/$dir" ]] || die "no planning/$dir/ here — PLANNING.md says how the directories are laid out"
   path="$planning/$dir/$s.md"
   [[ -e "$path" ]] && die "already exists: ${path#$root/}"
 
