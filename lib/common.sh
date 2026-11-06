@@ -11,7 +11,9 @@ TS_NAME="${TS_SELF##*/}"
 
 TS_ROOT="${TS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
 [[ -n "$TS_ROOT" ]] || { echo "${0##*/}: not inside a git repository" >&2; exit 2; }
-PROJECT="${PROJECT:-$(basename "$TS_ROOT")}"
+# Named for the main checkout, not this one: a worktree's directory is named
+# for its branch, and ~/.config/<project> would follow it.
+PROJECT="${PROJECT:-$(basename "$(dirname "$(git -C "$TS_ROOT" rev-parse --path-format=absolute --git-common-dir)")")}"
 
 # bin/ts.env: KEY=value lines, sourced. Settings already in the environment
 # win, so one run can point somewhere else.

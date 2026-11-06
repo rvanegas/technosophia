@@ -39,7 +39,7 @@ list() {
 
 if [[ $# -eq 0 || "$1" == -h || "$1" == --help ]]; then
   if [[ -n "$root" && -d "$root/bin" ]]; then
-    echo "$(basename "$root")'s own:"
+    echo "$(basename "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")")'s own:"
     list "$root/bin" own
     echo
   fi
