@@ -25,7 +25,7 @@ rule.
   when to read it. Nowhere else names them or counts them: a count in two
   places is a count that disagrees with itself.
 - **A credential that expires carries its date in that list**, and a
-  reminder a month before it: an expired key fails as whatever called it,
+  reminder three months before it: an expired key fails as whatever called it,
   never as an expiry.
 
 ## Health and deploy
@@ -37,10 +37,9 @@ rule.
   refuses a dirty tree unless asked (`--dirty`), and the stamp then says
   `-dirty`. It runs the project's tests, type checks and builds first
   (`deploy-pre`), and stops if they fail.
-- **The gate holds only tests that must pass.** A gate that can never pass
-  is a gate everybody learns to skip. A test that fails on trunk is fixed or
-  filed, and left out of the gate meanwhile with the reason beside it, not
-  left in to fail every deploy.
+- **Every test passes, and the gate is the whole suite.** A failing test on
+  trunk is fixed before anything else ships, not skipped, filed or left out
+  of the gate: a suite that is allowed to fail is one nobody reads.
 - **A deploy ends by checking** that the commit it sent is the one answering:
   on the server first, where the service listens (`HEALTH_LOCAL`), then at
   the public hostname. If not, the deploy failed: a restart that did not
