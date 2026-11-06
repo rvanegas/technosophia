@@ -24,6 +24,9 @@ rule.
   what it can do, and what losing it costs, with a row per credential saying
   when to read it. Nowhere else names them or counts them: a count in two
   places is a count that disagrees with itself.
+- **A credential that expires carries its date in that list**, and a
+  reminder a month before it: an expired key fails as whatever called it,
+  never as an expiry.
 
 ## Health and deploy
 
@@ -34,6 +37,10 @@ rule.
   refuses a dirty tree unless asked (`--dirty`), and the stamp then says
   `-dirty`. It runs the project's tests, type checks and builds first
   (`deploy-pre`), and stops if they fail.
+- **The gate holds only tests that must pass.** A gate that can never pass
+  is a gate everybody learns to skip. A test that fails on trunk is fixed or
+  filed, and left out of the gate meanwhile with the reason beside it, not
+  left in to fail every deploy.
 - **A deploy ends by checking** that the commit it sent is the one answering:
   on the server first, where the service listens (`HEALTH_LOCAL`), then at
   the public hostname. If not, the deploy failed: a restart that did not
@@ -71,6 +78,10 @@ rule.
 - **The callee owns the contract.** It publishes its response shapes at
   `/openapi.json`. A typed client generates its types from that file, and a
   client that parses by hand tests against a recorded real response.
+- **A changed response changes its contract in the same commit**: the
+  published model, and the callee's own recorded response its contract test
+  reads. The typed clients then regenerate. A model that forbids undeclared
+  fields is what makes the drift fail a test rather than a caller.
 - **Every call between services is recorded** in one place: caller, callee,
   address, the credential the caller holds, and the contract. A new call is
   added there in the same commit as the caller's change.
