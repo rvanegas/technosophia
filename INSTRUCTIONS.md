@@ -13,9 +13,10 @@ instructions is paid for every time. That asymmetry is the reason for the
 split, and it decays quietly: the natural place to write down what just
 happened is the file already open.
 
-- **Give it a cap, and state its current length in the file.** Correct that
-  figure in the same commit as any change to the file, or the rule governs
-  against a number nobody has checked.
+- **The cap is 20,000 bytes, in every project**, and no project sets its
+  own. The file states its current size in bytes. Correct that figure in
+  the same commit as any change to the file, or the rule governs against a
+  number nobody has checked.
 - **What does not belong**, and is almost all of any excess:
   - *Deploy narrative.* What was deployed is `ts deploys`, what is running is
     `ts health`, and why is a dated decision if it needs saying.
