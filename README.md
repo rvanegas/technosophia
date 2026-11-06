@@ -21,9 +21,13 @@ otherwise. An exception names the practice it departs from and says why.
 
 ## `ts`
 
-The shared scripts run through one command, put on PATH once:
+The shared scripts run through one command, linked once into a directory
+already on PATH:
 
-    export PATH="$HOME/src/technosophia/bin:$PATH"
+    ln -s ~/src/technosophia/bin/ts ~/.local/bin/ts
+
+`ts` finds the repository through the link, so pulling it updates the
+command.
 
 `ts <name>` runs the project's own `bin/<name>` if there is one, else the
 shared `libexec/<name>` here, with the project's root in `TS_ROOT`; `ts` alone

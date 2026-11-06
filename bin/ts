@@ -11,8 +11,9 @@
 # project's root, and the shared ones read their settings from
 # $TS_ROOT/bin/ts.env.
 #
-# Only bin/, holding this file, goes on PATH, so the script names stay plain
-# without entering the executable namespace.
+# Only this file is installed, as a link in a directory on PATH
+# (~/.local/bin/ts), so the script names stay plain without entering the
+# executable namespace. It finds the repository through the link.
 
 set -euo pipefail
 
