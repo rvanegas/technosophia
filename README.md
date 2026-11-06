@@ -24,16 +24,16 @@ otherwise. An exception names the practice it departs from and says why.
 The shared scripts run through one command, linked once into a directory
 already on PATH:
 
-    ln -s ~/src/technosophia/bin/ts ~/.local/bin/ts
+    ln -s ~/src/technosophia/ts ~/.local/bin/ts
 
 `ts` finds the repository through the link, so pulling it updates the
 command.
 
 `ts <name>` runs the project's own `bin/<name>` if there is one, else the
-shared `libexec/<name>` here, with the project's root in `TS_ROOT`; `ts` alone
+shared `bin/<name>` here, with the project's root in `TS_ROOT`; `ts` alone
 lists both. A project's script wins: that is how it does something
-otherwise. `bin/` holds `ts` alone, so it is the one command that enters the
-executable namespace, and the script names in `libexec/` stay plain.
+otherwise. Only `ts` is linked onto PATH, so it is the one command that
+enters the executable namespace, and the script names in `bin/` stay plain.
 
 A shared script reads the project's settings from `bin/ts.env` (`KEY=value`
 lines; each script's `--help` names the ones it uses), and runs the
@@ -54,4 +54,4 @@ them. Whatever belongs to one project stays in that project.
 | `INSTRUCTIONS.md` | When adding to a project's agent instructions |
 | `SERVICES.md` | When changing a service's config, secrets, health, deploy, or a call between services |
 | `CLIENTS.md` | When a project ships an installed client: wire changes, the compatibility floor, store builds |
-| `bin/ts`, `libexec/`, `lib/` | The dispatcher, the shared scripts, and what they source |
+| `ts`, `bin/`, `lib/` | The dispatcher, the shared scripts, and what they source |

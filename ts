@@ -17,9 +17,7 @@
 
 set -euo pipefail
 
-# bin/ holds only what goes on PATH, which is this; the shared scripts are in
-# libexec/, reached through it.
-shared="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)/libexec"
+shared="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/bin"
 root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 
 # The first comment line after the shebang and the bare `#`.
