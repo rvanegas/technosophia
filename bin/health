@@ -53,7 +53,7 @@ fields() {
 }
 
 echo "$URL"
-while IFS=$'\t' read -r key value; do
+while IFS=$'\t' read -r key value || [ -n "$key" ]; do
   note=""
   if [ "$key" = commit ]; then
     clean=${value%-dirty}
