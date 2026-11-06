@@ -17,6 +17,33 @@ store's testing channel; **submit** puts an uploaded one in front of review;
 last two are not reversible. Say the one you mean. A script that submits
 **stops before the button**: the irreversible half is a person's.
 
+## The documents and scripts
+
+A project that ships to a store keeps three standing documents, which the
+shared scripts name:
+
+- **`planning/RELEASING.md`**: the procedure. What each verb costs, the
+  app's build settings and why, what to verify before pressing submit, and
+  how to write "What's New". Read it before an upload, a submission or a
+  release, and not otherwise.
+- **`planning/CREDENTIALS.md`**: where the App Store Connect key, the push
+  keys and the upload keystore live (`SERVICES.md`).
+- **`planning/DEMO-ACCOUNT.md`**: the accounts a reviewer signs in as, and
+  the order they are torn down in. **They outlive approval, because every
+  update is reviewed.**
+
+The texts a submission sends live in `planning/submissions/`, named after the
+version (`whats-new-<version>.txt`, `review-notes-<version>.txt`), so a
+version bump moves both.
+
+The scripts, all through `ts`: `upload-ios` (bump, archive, upload, tag,
+then `testflight-notes`), `testflight` (what TestFlight holds; read-only),
+`testflight-notes` (What to Test from the commit subjects, then distribute),
+`set-review-notes`, `submit-ios` (prepares a submission and stops before the
+button; `--status` reads, `--sync-released` offers to move `released`), and
+`android` (the emulator loop, `--apk`, `--aab`). Their `--help` names the
+settings each reads.
+
 ## Tags
 
 - **Every upload is tagged `build/<n>`** by the upload script, which refuses

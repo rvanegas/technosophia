@@ -5,6 +5,10 @@
 # holding the current directory — never the script's own location, which is
 # technosophia rather than the project.
 
+# The calling script, absolute, before any of them changes directory.
+TS_SELF="$(readlink -f "$0")"
+TS_NAME="${TS_SELF##*/}"
+
 TS_ROOT="${TS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
 [[ -n "$TS_ROOT" ]] || { echo "${0##*/}: not inside a git repository" >&2; exit 2; }
 PROJECT="${PROJECT:-$(basename "$TS_ROOT")}"
@@ -21,7 +25,7 @@ if [[ -f "$TS_ROOT/bin/ts.env" ]]; then
   unset line key
 fi
 
-die() { echo "${0##*/}: $*" >&2; exit 1; }
+die() { echo "$TS_NAME: $*" >&2; exit 1; }
 
 # A setting the script cannot do without.
 need() {
@@ -39,15 +43,15 @@ remote() { $SSH "$HOST" "$@"; }
 # script's.
 hook() {
   local stage="$1"; shift
-  local h="$TS_ROOT/bin/hooks/${0##*/}-$stage"
+  local h="$TS_ROOT/bin/hooks/$TS_NAME-$stage"
   [[ -x "$h" ]] || return 0
   TS_ROOT="$TS_ROOT" "$h" "$@"
 }
-has_hook() { [[ -x "$TS_ROOT/bin/hooks/${0##*/}-$1" ]]; }
+has_hook() { [[ -x "$TS_ROOT/bin/hooks/$TS_NAME-$1" ]]; }
 
 # The comment block at the top of the calling script, as its --help.
 usage() {
-  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$TS_SELF"
 }
 
 # Env files, compared by key name alone: values are never printed. Enough to

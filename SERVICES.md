@@ -19,7 +19,8 @@ rule.
 - **The server's `.env` has a local copy**, the backup and the place a
   credential is authored. `ts env-pull` and `ts env-push` move it, by key
   name, never printing a value.
-- **The credentials are listed in one place**: each one, where it lives,
+- **The credentials are listed in one place**, `planning/CREDENTIALS.md`:
+  each one, where it lives,
   what it can do, and what losing it costs, with a row per credential saying
   when to read it. Nowhere else names them or counts them: a count in two
   places is a count that disagrees with itself.
