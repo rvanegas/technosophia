@@ -47,14 +47,16 @@ rule.
 
 ## Calls between services
 
-- **Over HTTPS, and only through the callee's HTTP API.** Never through its
-  database, its files, or its internals: no shelling out to another
-  project's CLI, no importing its modules, no `docker exec` jobs. When a
-  client needs something, expand the API rather than going around it.
-- **A service's own clients go through its API too**: its CLI, once there
-  is a server, and its scheduled jobs, which hold a service token like any
-  other caller. Operator tasks (migrations, backups, debugging) and the
-  service's internals are exempt.
+- **One implementation per capability, so two surfaces cannot diverge.** A
+  service's CLI, its API, its tools and its scheduled jobs are thin over
+  the same code. A second path to the same capability is a second surface,
+  and it drifts from the first without anybody deciding it should.
+- **Across projects, that means over HTTPS and only through the callee's
+  API**: never shelling out to another project's CLI, importing its
+  modules, or reaching into its container or database. Each of those makes
+  something the callee never published into a surface it now has to keep.
+  When a caller needs more, the callee expands its API.
+- Operator tasks (migrations, backups, debugging) are exempt.
 - **A bearer token names the caller.** A service holds a static token of its
   own, and a person's browser sends that person's access token. A key is
   never shared between consumers.
