@@ -34,9 +34,10 @@ rule.
   refuses a dirty tree unless asked (`--dirty`), and the stamp then says
   `-dirty`. It runs the project's tests, type checks and builds first
   (`deploy-pre`), and stops if they fail.
-- **A deploy ends by checking** that the commit it sent is the one answering
-  at the public hostname. If not, the deploy failed: a restart that did not
-  take looks healthy otherwise.
+- **A deploy ends by checking** that the commit it sent is the one answering:
+  on the server first, where the service listens (`HEALTH_LOCAL`), then at
+  the public hostname. If not, the deploy failed: a restart that did not
+  take looks healthy otherwise, and the two checks say which half failed.
 - **A deploy records itself on the server**, one line per outcome, failures
   included; `ts deploys` reads it. Nobody writes a deploy down by hand, and
   no document carries a deployed sha: what is running is a measurement, and
@@ -47,7 +48,13 @@ rule.
 ## Calls between services
 
 - **Over HTTPS, and only through the callee's HTTP API.** Never through its
-  database, its files, or its internals.
+  database, its files, or its internals: no shelling out to another
+  project's CLI, no importing its modules, no `docker exec` jobs. When a
+  client needs something, expand the API rather than going around it.
+- **A service's own clients go through its API too**: its CLI, once there
+  is a server, and its scheduled jobs, which hold a service token like any
+  other caller. Operator tasks (migrations, backups, debugging) and the
+  service's internals are exempt.
 - **A bearer token names the caller.** A service holds a static token of its
   own, and a person's browser sends that person's access token. A key is
   never shared between consumers.

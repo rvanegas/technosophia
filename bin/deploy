@@ -13,12 +13,16 @@
 #   DEPLOY_DEST     where it goes on the server
 #   DEPLOY_STAMP    the stamp, relative to DEPLOY_SOURCE; default deployed.json
 #   DEPLOY_LOG      the record on the server, appended to; optional
+#   HEALTH_LOCAL    the service's own address on the server (say
+#                   http://127.0.0.1:8001/healthz), checked there before the
+#                   public one; optional
 # bin/ts.rsync, if present, is an rsync filter file (`- pattern`,
 # `+ pattern`): what is never shipped and never deleted on the far side.
 #
 # Hooks (bin/hooks/), each run if present, each failing the deploy:
 #   deploy-pre      before anything is sent: tests, type checks, builds
 #   deploy-remote   after the sync: install and restart on the server
+# Each hook has HOST, SHA and the settings in its environment.
 #   deploy-post     after the check, given the health body; never fails it
 #
 # **Rsync of the working tree, not a git ref**, so one command *can* ship a
@@ -36,8 +40,10 @@
 # branch, the outcome, who from where. `ts deploys` reads it. Nobody writes a
 # deploy down by hand; one whose reasons are worth keeping gets a decision.
 #
-# **It ends by checking that the commit it sent is the one answering** at the
-# public address. A restart that failed and left the previous process serving
+# **It ends by checking that the commit it sent is the one answering**, on
+# the server first when HEALTH_LOCAL says where, then at the public address:
+# the first failing says the service did not take it, the second that the
+# front door does not reach it. A restart that failed and left the previous process serving
 # looks healthy otherwise, and everything afterwards gets verified against the
 # wrong revision.
 set -euo pipefail
@@ -73,10 +79,12 @@ hook pre
 
 SHA=$(git rev-parse --short HEAD)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
+export HOST
 if [ -n "$(git status --porcelain)" ]; then
   SHA="$SHA-dirty"
   echo "⚠ deploying a dirty tree — the server will record $SHA" >&2
 fi
+export SHA
 case "$BRANCH" in
   master|main) ;;
   *) echo "⚠ deploying from $BRANCH, not trunk" >&2 ;;
@@ -124,6 +132,21 @@ if has_hook remote; then
     record "install or restart failed"
     die "✗ the deploy-remote hook failed on the server"
   fi
+fi
+
+if [ -n "${HEALTH_LOCAL:-}" ]; then
+  echo "→ checking $HEALTH_LOCAL on the server"
+  got=""
+  for _ in $(seq 1 30); do
+    got=$(remote "curl -fsS --max-time 3 $HEALTH_LOCAL" 2>/dev/null | commit_of || true)
+    [ "$got" = "$SHA" ] && break
+    sleep 2
+  done
+  if [ "$got" != "$SHA" ]; then
+    record "the server does not serve it"
+    die "✗ $HOST answers ${got:-nothing} at $HEALTH_LOCAL, not $SHA"
+  fi
+  echo "  $HOST runs $SHA"
 fi
 
 echo "→ checking $URL$HEALTH_PATH"

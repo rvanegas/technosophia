@@ -42,6 +42,12 @@ project pays for it.
   decision says why; neither reaches the transcript, where the rejected
   approach and the question that reframed it are. Only a running session
   knows its own URL, so nothing can add it afterwards.
+- **No compatibility code where nothing installed depends on it.** No
+  deprecation shims, compatibility flags or legacy fallbacks: if something
+  changes, change it completely, and rename cleanly, without aliases.
+  Existing *data* is still migrated, by a script, when it would otherwise
+  break. A project with installed clients is the exception, and keeps a
+  register of the shims it owes them (`CLIENTS.md`).
 - **The tests are the record** of what is covered. A hand-kept table of
   which test covers what duplicates the suite and goes stale faster than
   the code.
