@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# What has been done to the server by hand, newest first, as recorded on the
+# server itself.
+#
+#   ts deploys            the last twenty
+#   ts deploys -n 50      the last fifty
+#   ts deploys --all      everything recorded
+#
+# Settings (bin/ts.env): HOST, an ~/.ssh/config alias; DEPLOY_LOG, the record
+# on the server.
+#
+# Read-only. The record is appended to by `ts deploy`, and by any project
+# script that changes the server by hand (a restart, say), one tab-separated
+# line each: when (UTC), what kind, what changed, the branch, the outcome,
+# and who ran it from where. A line whose outcome is not `ok` is a time the
+# server was left in a state somebody did not choose.
+#
+# `ts health` is what is running now; this is how it got there.
+set -euo pipefail
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/common.sh"
+
+count=20
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -n) shift; [ $# -gt 0 ] || die "-n needs a number"; count=$1 ;;
+    --all) count=0 ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown option: $1" ;;
+  esac
+  shift
+done
+case "$count" in ''|*[!0-9]*) die "-n needs a number" ;; esac
+
+need HOST DEPLOY_LOG
+log=$(remote "cat $DEPLOY_LOG 2>/dev/null || true")
+if [ -z "$log" ]; then
+  echo "nothing recorded yet — the first ts deploy writes it"
+  exit 0
+fi
+
+# `tail -r` is BSD only; awk reverses portably.
+echo "$log" \
+  | awk '{ lines[NR] = $0 } END { for (i = NR; i >= 1; i--) print lines[i] }' \
+  | { if [ "$count" -gt 0 ]; then head -n "$count"; else cat; fi; } \
+  | column -t -s $'\t'

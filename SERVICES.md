@@ -12,18 +12,34 @@ rule.
 - **Secrets** are never in a synced tree or a repository, and they live in
   files of mode 600. A secret is copied from source to destination without
   being printed.
+- **Keys live outside any tree a deploy syncs with `--delete`**, under
+  `~/.config/<project>`: a key inside the tree is one a later deploy
+  removes. Exclude the pattern from the deploy and from git as well, both
+  deliberately.
+- **The server's `.env` has a local copy**, the backup and the place a
+  credential is authored. `ts env-pull` and `ts env-push` move it, by key
+  name, never printing a value.
+- **The credentials are listed in one place**: each one, where it lives,
+  what it can do, and what losing it costs, with a row per credential saying
+  when to read it. Nowhere else names them or counts them: a count in two
+  places is a count that disagrees with itself.
 
 ## Health and deploy
 
 - **Every service answers `GET /healthz`** with JSON carrying `ok` and
   `commit`: the deployed sha, with `-dirty` added if the tree was dirty. A
   static site serves the same JSON as `/deployed.json`.
-- **The deploy script stamps the commit.** By default it refuses a dirty
-  tree. Asked explicitly, it ships the working tree as it stands, and the
-  stamp says so.
-- **A deploy ends by checking** that the commit it sent is the one answering,
-  first on the server and then at the public hostname. If either check fails,
-  the deploy failed.
+- **`ts deploy` ships the working tree, stamped with the commit.** It
+  refuses a dirty tree unless asked (`--dirty`), and the stamp then says
+  `-dirty`. It runs the project's tests, type checks and builds first
+  (`deploy-pre`), and stops if they fail.
+- **A deploy ends by checking** that the commit it sent is the one answering
+  at the public hostname. If not, the deploy failed: a restart that did not
+  take looks healthy otherwise.
+- **A deploy records itself on the server**, one line per outcome, failures
+  included; `ts deploys` reads it. Nobody writes a deploy down by hand, and
+  no document carries a deployed sha: what is running is a measurement, and
+  `ts health` takes it.
 - **One hostname per service**, the service's name under a shared domain.
   An exception is recorded where the project's hosting is recorded.
 

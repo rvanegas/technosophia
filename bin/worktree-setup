@@ -1,0 +1,86 @@
+#!/bin/bash
+#
+# Installs dependencies for a checkout that has none — which is every fresh
+# git worktree.
+#
+#   ts worktree-setup
+#
+# Settings (bin/ts.env): WORKTREE_PACKAGES, the directories that each own a
+# package-lock.json (default: every one found within two levels of the root);
+# WORKTREE_COPY, gitignored files to copy from the main checkout when this
+# tree has none.
+#
+# Git populates a worktree with tracked files only, so it starts with no
+# installed dependencies, and the first test run fails as `jest: command not
+# found` — which reads like a broken toolchain rather than the missing install
+# it is.
+#
+# **Never symlink the main checkout's modules.** A shared node_modules is
+# shared for writes: an install in the worktree resolves the link and writes
+# into the main checkout, so a branch that bumps a dependency silently changes
+# what trunk builds against. Installing per worktree costs disk and a few
+# minutes; it does not cost that.
+#
+# **Only non-secret files are copied.** A gitignored file holding one public
+# URL is worth copying; one holding a service's secrets is not, since
+# spreading those across a directory per worktree is the opposite of keeping
+# them in one place.
+#
+# `npm ci` rather than `npm install`: it installs exactly what the lockfile
+# pins, and refuses when package.json and the lockfile disagree — a refusal
+# worth having.
+set -euo pipefail
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/common.sh"
+cd "$TS_ROOT"
+
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+
+if [ -n "${WORKTREE_PACKAGES:-}" ]; then
+  read -r -a PACKAGES <<<"$WORKTREE_PACKAGES"
+else
+  PACKAGES=()
+  while IFS= read -r lock; do
+    PACKAGES+=("$(dirname "${lock#./}")")
+  done < <(find . -maxdepth 3 -name package-lock.json -not -path '*/node_modules/*' | sort)
+fi
+[ "${#PACKAGES[@]}" -gt 0 ] || { echo "nothing to install: no package-lock.json here"; exit 0; }
+
+# A link has to go before npm runs: `npm ci` removes node_modules first, and
+# through a link that is the main checkout's it would be removing.
+for pkg in "${PACKAGES[@]}"; do
+  if [ -L "$pkg/node_modules" ]; then
+    echo "✗ $pkg/node_modules is a symlink to $(readlink "$pkg/node_modules")" >&2
+    echo "  npm would install through it into the checkout it points at." >&2
+    echo "  Remove it and re-run:  rm $pkg/node_modules" >&2
+    exit 1
+  fi
+done
+
+MAIN_GIT=$(git rev-parse --git-common-dir 2>/dev/null || echo '')
+if [ -n "$MAIN_GIT" ] && [ -n "${WORKTREE_COPY:-}" ]; then
+  MAIN=$(cd "$(dirname "$MAIN_GIT")" && pwd)
+  if [ "$MAIN" != "$(pwd)" ]; then
+    for f in $WORKTREE_COPY; do
+      if [ ! -f "$f" ] && [ -f "$MAIN/$f" ]; then
+        cp "$MAIN/$f" "$f"
+        echo "→ copied $f from $MAIN"
+      fi
+    done
+  fi
+fi
+
+echo "→ installing into $(pwd): ${PACKAGES[*]}"
+for pkg in "${PACKAGES[@]}"; do
+  echo
+  echo "→ $pkg"
+  if ! npm ci --prefix "$pkg"; then
+    echo >&2
+    echo "✗ npm ci failed in $pkg/" >&2
+    echo "  If the lockfile is out of sync with package.json, this branch changed a" >&2
+    echo "  dependency without updating it. Fix it at the source and commit it:" >&2
+    echo "      npm install --prefix $pkg" >&2
+    exit 1
+  fi
+done
+echo
+echo "✓ installed"

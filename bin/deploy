@@ -1,0 +1,148 @@
+#!/bin/bash
+#
+# Ships the working tree to the server, stamped with the commit it is.
+#
+#   ts deploy            refuses unless the tree is clean
+#   ts deploy --dirty    ships the working tree as it stands, and says so
+#
+# Settings (bin/ts.env):
+#   HOST            the server, as an ~/.ssh/config alias
+#   URL             the public address; the check reads URL + HEALTH_PATH
+#   HEALTH_PATH     default /healthz; a static site uses /deployed.json
+#   DEPLOY_SOURCE   what is shipped, relative to the root; default .
+#   DEPLOY_DEST     where it goes on the server
+#   DEPLOY_STAMP    the stamp, relative to DEPLOY_SOURCE; default deployed.json
+#   DEPLOY_LOG      the record on the server, appended to; optional
+# bin/ts.rsync, if present, is an rsync filter file (`- pattern`,
+# `+ pattern`): what is never shipped and never deleted on the far side.
+#
+# Hooks (bin/hooks/), each run if present, each failing the deploy:
+#   deploy-pre      before anything is sent: tests, type checks, builds
+#   deploy-remote   after the sync: install and restart on the server
+#   deploy-post     after the check, given the health body; never fails it
+#
+# **Rsync of the working tree, not a git ref**, so one command *can* ship a
+# dirty tree. **A dirty tree needs asking for**: shipping the working tree
+# means unrelated work in progress rides along, and whoever runs it is usually
+# deploying for a different reason and has no idea it is there.
+#
+# **The stamp records what is about to be running**, `-dirty` when the tree
+# was. It ships like any other file and the service serves it; it is removed
+# from the checkout once sent, since a copy left there would have a local run
+# reporting somebody's last deploy.
+#
+# **The deploy records itself** on the server, one tab-separated line per
+# outcome once the server has been touched: when, `deploy`, from → to, the
+# branch, the outcome, who from where. `ts deploys` reads it. Nobody writes a
+# deploy down by hand; one whose reasons are worth keeping gets a decision.
+#
+# **It ends by checking that the commit it sent is the one answering** at the
+# public address. A restart that failed and left the previous process serving
+# looks healthy otherwise, and everything afterwards gets verified against the
+# wrong revision.
+set -euo pipefail
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/common.sh"
+cd "$TS_ROOT"
+
+allow_dirty=false
+for arg in "$@"; do
+  case "$arg" in
+    --dirty) allow_dirty=true ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
+
+need HOST URL DEPLOY_DEST
+HEALTH_PATH=${HEALTH_PATH:-/healthz}
+DEPLOY_SOURCE=${DEPLOY_SOURCE:-.}
+DEPLOY_STAMP=${DEPLOY_STAMP:-deployed.json}
+
+# Before the hooks rather than after, so a tree that is going to be refused is
+# refused in a second instead of at the end of a minute's work.
+if [ -n "$(git status --porcelain)" ] && ! $allow_dirty; then
+  echo "✗ the tree is dirty; this ships the working tree, not a commit" >&2
+  echo >&2
+  git status --short >&2
+  echo >&2
+  echo "  commit or stash first, or 'ts deploy --dirty' to ship it as it is" >&2
+  exit 1
+fi
+
+hook pre
+
+SHA=$(git rev-parse --short HEAD)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ -n "$(git status --porcelain)" ]; then
+  SHA="$SHA-dirty"
+  echo "⚠ deploying a dirty tree — the server will record $SHA" >&2
+fi
+case "$BRANCH" in
+  master|main) ;;
+  *) echo "⚠ deploying from $BRANCH, not trunk" >&2 ;;
+esac
+
+commit_of() { sed -n 's/.*"commit": *"\([^"]*\)".*/\1/p'; }
+
+# The revision being replaced, asked of the server rather than remembered.
+# One that does not answer is recorded as such rather than holding up a
+# deploy that may be the fix for exactly that.
+FROM=$(curl -fsS --max-time 5 "$URL$HEALTH_PATH" 2>/dev/null | commit_of || true)
+FROM=${FROM:-unknown}
+
+record() {
+  [ -n "${DEPLOY_LOG:-}" ] || return 0
+  printf '%s\tdeploy\t%s → %s\t%s\t%s\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$FROM" "$SHA" "$BRANCH" "$1" \
+    "$(id -un)@$(hostname -s)" \
+    | remote "mkdir -p \"\$(dirname $DEPLOY_LOG)\" && cat >> $DEPLOY_LOG" \
+    || echo "⚠ could not append to the server's $DEPLOY_LOG" >&2
+}
+
+stamp="$DEPLOY_SOURCE/$DEPLOY_STAMP"
+trap 'rm -f "$stamp"' EXIT
+cat > "$stamp" <<JSON
+{
+  "commit": "$SHA",
+  "branch": "$BRANCH",
+  "at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+JSON
+
+filter=()
+[ -f bin/ts.rsync ] && filter=(--filter="merge bin/ts.rsync")
+
+echo "→ syncing $DEPLOY_SOURCE to $HOST:$DEPLOY_DEST"
+$SSH "$HOST" true || die "cannot reach $HOST"
+rsync -az --delete -e "$SSH" --exclude .git ${filter[@]+"${filter[@]}"} \
+  "$DEPLOY_SOURCE/" "$HOST:$DEPLOY_DEST/"
+rm -f "$stamp"
+
+if has_hook remote; then
+  echo "→ on the server"
+  if ! HOST="$HOST" hook remote; then
+    record "install or restart failed"
+    die "✗ the deploy-remote hook failed on the server"
+  fi
+fi
+
+echo "→ checking $URL$HEALTH_PATH"
+for _ in $(seq 1 20); do
+  if body=$(curl -fsS --max-time 5 "$URL$HEALTH_PATH" 2>/dev/null); then
+    got=$(echo "$body" | commit_of)
+    if [ "$got" = "$SHA" ]; then
+      record ok
+      echo "✓ deployed $SHA, answering at $URL"
+      hook post "$body" || true
+      exit 0
+    fi
+  fi
+  sleep 2
+done
+
+if [ -n "${got:-}" ]; then
+  record "healthy, but not serving it"
+  die "✗ $URL$HEALTH_PATH answers ${got}, not $SHA — the restart did not take"
+fi
+record "did not come back healthy"
+die "✗ $URL$HEALTH_PATH did not answer"

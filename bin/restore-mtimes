@@ -1,0 +1,79 @@
+#!/usr/bin/env node
+//
+// Sets each file in planning/task/ and planning/backlog/ back to the time its
+// content last really changed, as git records it.
+//
+//   ts restore-mtimes            touch every file whose mtime disagrees
+//   ts restore-mtimes --dry-run  print what it would set, newest first
+//
+// A checkout stamps every file it touches with the same minute. Their mtimes
+// are how anybody reads recency off `ls -lt`, and git does not keep mtimes —
+// but it keeps when the content changed, which is the same thing to within
+// the minutes between saving a file and committing it.
+//
+// **Two kinds of commit change a file without changing what it says**, and
+// each is passed over rather than counted as an edit:
+//
+// - a pure rename (R100), which `--follow` reports as a change;
+// - a commit that swept a mechanical rewrite across these directories (a path
+//   renamed inside every file, say). Name it in MTIME_SKIP in bin/ts.env,
+//   space-separated short shas, whenever one lands.
+//
+// A file with uncommitted changes is left alone: its mtime is the newer truth.
+
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+const git0 = (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 1 << 26 });
+const ROOT = process.env.TS_ROOT || git0(['rev-parse', '--show-toplevel']).trim();
+const DIRS = ['planning/task', 'planning/backlog'].filter((d) => fs.existsSync(path.join(ROOT, d)));
+
+// bin/ts.env, for MTIME_SKIP; the environment wins.
+function setting(key) {
+  if (process.env[key] != null) return process.env[key];
+  const env = path.join(ROOT, 'bin', 'ts.env');
+  if (!fs.existsSync(env)) return '';
+  const line = fs.readFileSync(env, 'utf8').split('\n').find((l) => l.startsWith(`${key}=`));
+  return line ? line.slice(key.length + 1).replace(/^["']|["']$/g, '') : '';
+}
+const SKIP = setting('MTIME_SKIP').split(/\s+/).filter(Boolean);
+const dryRun = process.argv.includes('--dry-run');
+const git = (...args) => git0(args, ROOT);
+
+const dirty = new Set(
+  git('status', '--porcelain', '--', ...DIRS).split('\n').filter(Boolean).map((l) => l.slice(3)),
+);
+const skipped = (sha) => SKIP.some((s) => sha.startsWith(s) || s.startsWith(sha));
+
+function contentTime(file) {
+  const log = git('log', '--follow', '-M', '--format=%x00%h %ct', '--name-status', '--', file);
+  for (const entry of log.split('\0').filter((e) => e.trim())) {
+    const [head, status] = entry.trim().split('\n').filter(Boolean);
+    const [sha, time] = head.split(' ');
+    if (skipped(sha) || /^R100\b/.test(status || '')) continue;
+    return +time;
+  }
+  return null;
+}
+
+const rows = [];
+for (const dir of DIRS) {
+  for (const name of fs.readdirSync(path.join(ROOT, dir)).filter((n) => n.endsWith('.md'))) {
+    const file = `${dir}/${name}`;
+    if (dirty.has(file)) continue;
+    const t = contentTime(file);
+    if (t == null) continue;
+    const abs = path.join(ROOT, file);
+    const was = Math.floor(fs.statSync(abs).mtimeMs / 1000);
+    rows.push({ file, t, was });
+    if (!dryRun && was !== t) fs.utimesSync(abs, new Date(), new Date(t * 1000));
+  }
+}
+
+const fmt = (t) => new Date(t * 1000).toLocaleString('sv-SE');
+for (const r of rows.sort((a, b) => b.t - a.t)) {
+  console.log(`${fmt(r.t)}  ${r.was === r.t ? ' ' : '*'} ${r.file}`);
+}
+const changed = rows.filter((r) => r.was !== r.t).length;
+console.log(`\n${changed} of ${rows.length} ${dryRun ? 'would change' : 'changed'} (* marks them)`);

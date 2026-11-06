@@ -12,13 +12,30 @@ contrary.
 
 ## How a project adopts them
 
-A project's agent instructions (`CLAUDE.md`, `AGENTS.md`) import the core:
+A project's `CLAUDE.md` imports the core, which says when to read the rest:
 
     @~/src/technosophia/WORKING.md
 
-and point at the rest for when it comes up. Every practice here applies
-unless the project's own instructions say otherwise. An exception names the
-practice it departs from and says why.
+Every practice here applies unless the project's own instructions say
+otherwise. An exception names the practice it departs from and says why.
+
+## `ts`
+
+The shared scripts run through one command, put on PATH once:
+
+    export PATH="$HOME/src/technosophia:$PATH"
+
+`ts <name>` runs the project's own `bin/<name>` if there is one, else the
+shared `bin/<name>` here, with the project's root in `TS_ROOT`; `ts` alone
+lists both. A project's script wins: that is how it does something
+otherwise. Only `ts` enters the executable namespace, so the script names
+stay plain.
+
+A shared script reads the project's settings from `bin/ts.env` (`KEY=value`
+lines; each script's `--help` names the ones it uses), and runs the
+project's own steps from `bin/hooks/<script>-<stage>`. Servers are named by
+their `~/.ssh/config` alias: no address, user or key is written in a script
+or a setting.
 
 This repository names no project. Projects refer to it; it never refers to
 them. Whatever belongs to one project stays in that project.
@@ -27,5 +44,10 @@ them. Whatever belongs to one project stays in that project.
 
 | File | Read |
 |---|---|
-| `WORKING.md` | Every session: branches, the verbs, and how a change is recorded |
+| `WORKING.md` | Every session: branches, the verbs, how a change is recorded, and when to read the rest |
+| `LANDING.md` | When landing, and when working in a worktree |
+| `PLANNING.md` | When filing or resolving a task, backlog item or decision |
+| `INSTRUCTIONS.md` | When adding to a project's agent instructions |
 | `SERVICES.md` | When changing a service's config, secrets, health, deploy, or a call between services |
+| `CLIENTS.md` | When a project ships an installed client: wire changes, the compatibility floor, store builds |
+| `ts`, `bin/`, `lib/` | The shared scripts |

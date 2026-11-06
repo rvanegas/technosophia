@@ -1,0 +1,121 @@
+#!/bin/bash
+#
+# Copies the local .env onto the server and restarts the service.
+#
+#   ts env-push       says what will change, asks, sends, restarts, checks
+#   ts env-push -y    without asking
+#
+# Settings (bin/ts.env): HOST, an ~/.ssh/config alias; ENV_REMOTE; ENV_LOCAL
+# (default ~/.config/<project>/server.env); ENV_EXAMPLE, the tracked example
+# whose keys should all be present; SERVICE, the systemd unit; URL and
+# HEALTH_PATH for the check.
+# Hooks: env-push-restart replaces `systemctl restart $SERVICE`;
+# env-push-post runs once healthy.
+#
+# Values are never printed — see `ts env-pull`.
+#
+# In ENV_EXAMPLE, a `# env-push: optional` line exempts the next key: for
+# alternatives rather than requirements, and for a key whose normal state is
+# absent. Blank is a decision; absent is usually an accident.
+set -euo pipefail
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/common.sh"
+cd "$TS_ROOT"
+
+ASSUME_YES=no
+case "${1:-}" in
+  -y) ASSUME_YES=yes ;;
+  -h|--help) usage; exit 0 ;;
+esac
+need HOST ENV_REMOTE URL
+HEALTH_PATH=${HEALTH_PATH:-/healthz}
+LOCAL=${ENV_LOCAL:-$HOME/.config/$PROJECT/server.env}
+LOCAL=${LOCAL/#\~/$HOME}
+has_hook restart || need SERVICE
+
+[ -f "$LOCAL" ] || die "✗ no $LOCAL — run ts env-pull first"
+
+required() {
+  awk '
+    /^# *env-push: optional/ { skip = 1; next }
+    /^[A-Za-z_][A-Za-z0-9_]*=/ {
+      if (skip) { skip = 0; next }
+      sub(/=.*/, ""); print; next
+    }
+  ' "$1" | sort
+}
+if [ -n "${ENV_EXAMPLE:-}" ] && [ -f "$ENV_EXAMPLE" ]; then
+  MISSING=$(comm -23 <(required "$ENV_EXAMPLE") <(env_names "$LOCAL") | tr '\n' ' ')
+  [ -z "$MISSING" ] || echo "⚠ documented in $ENV_EXAMPLE and absent here: $MISSING" >&2
+fi
+
+# Say what is being compared, always: a push that did not happen and a push
+# that was not needed must not look identical. Silence is not evidence.
+echo "  local:  $LOCAL ($(env_names "$LOCAL" | wc -l | tr -d ' ') keys, $(date -r "$LOCAL" '+%H:%M'))"
+
+TMP=$(mktemp); chmod 600 "$TMP"; trap 'rm -f "$TMP"' EXIT
+if remote "cat $ENV_REMOTE" > "$TMP" 2>/dev/null && [ -s "$TMP" ]; then
+  echo "  server: $ENV_REMOTE ($(env_names "$TMP" | wc -l | tr -d ' ') keys)"
+  if cmp -s "$TMP" "$LOCAL"; then
+    echo "✓ byte-identical — nothing to do"
+    exit 0
+  fi
+  CHANGED=$(env_changed "$TMP" "$LOCAL")
+  echo "  will change on the server: ${CHANGED:-(comments or blank lines only)}"
+else
+  echo "  the server has no readable $ENV_REMOTE — this will create it"
+fi
+
+# This replaces credentials rather than code, so a wrong file is a service
+# that starts and quietly cannot do its job. A deploy runs tests first and
+# checks a sha afterwards; this can do neither, so it asks.
+if [ "$ASSUME_YES" != yes ]; then
+  printf '  push and restart? [y/N] '
+  # `read` fails at end of input, and under `set -e` that would abort with
+  # the prompt half-written. Answer for it instead, and say so.
+  if ! read -r reply; then
+    echo
+    echo "  no answer available (stdin is not a terminal) — nothing sent." >&2
+    echo "  run it from a terminal, or pass -y to skip the question." >&2
+    exit 1
+  fi
+  case "$reply" in [yY]*) ;; *) echo "  nothing sent"; exit 1 ;; esac
+fi
+
+# When the process started, so the restart can be proved rather than
+# assumed: nothing changes here but the environment, so there is no sha to
+# compare, and a restart that silently failed leaves the old process serving
+# the old environment.
+started() {
+  [ -n "${SERVICE:-}" ] || return 0
+  remote "systemctl show $SERVICE -p ExecMainStartTimestamp --value" 2>/dev/null || true
+}
+BEFORE=$(started)
+
+echo "→ sending"
+# Through a temp path, then moved: straight onto the live file leaves a
+# window where it is half-written.
+tmp_remote="/tmp/.$PROJECT-env-$$"
+scp -o BatchMode=yes -q "$LOCAL" "$HOST:$tmp_remote"
+remote "chmod 600 $tmp_remote && mv $tmp_remote $ENV_REMOTE"
+
+if has_hook restart; then
+  HOST="$HOST" hook restart
+else
+  remote "sudo systemctl daemon-reload && sudo systemctl restart $SERVICE"
+fi
+
+echo "→ waiting for health"
+for _ in $(seq 1 20); do
+  if body=$(curl -fsS --max-time 5 "$URL$HEALTH_PATH" 2>/dev/null); then
+    echo "✓ $body"
+    AFTER=$(started)
+    if [ -n "$BEFORE" ] && [ "$BEFORE" = "$AFTER" ]; then
+      die "✗ healthy, but the process did not restart — it is still the one that started $AFTER, serving the previous environment."
+    fi
+    [ -z "$AFTER" ] || echo "  restarted: $AFTER"
+    HOST="$HOST" hook post "$body" || true
+    exit 0
+  fi
+  sleep 2
+done
+die "✗ did not come back healthy"

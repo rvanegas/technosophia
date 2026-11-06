@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# A new task, which is the common case and so has its own name.
+#
+#   ts task "Some Title"
+#
+# Creates planning/task/<slug>.md holding that title as its `# ` heading, and
+# prints the path. Writing what the task actually is remains yours; a file
+# holding nothing but a heading is a real state, and says the work is wanted
+# and that nobody has yet said what it is.
+#
+# Everything else — finding which file a quoted reference means, retitling one,
+# the backlog, decisions, the invariants — is `ts note`, which is also where
+# the slug rule is implemented.
+
+set -euo pipefail
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/note" new task "$@"

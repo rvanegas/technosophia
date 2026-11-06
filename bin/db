@@ -1,0 +1,88 @@
+#!/bin/bash
+#
+# A SQLite shell on the service's database.
+#
+#   ts db                          interactive, on the server
+#   ts db "select * from users"    one query, then exit
+#   ts db --local                  the development database on this machine
+#   ts db --write                  allow writes (read-only otherwise)
+#   ts db --line "select ..."      one column per line, for wide rows
+#   ts db --json "select ..."      JSON out, with JSON columns decoded
+#
+# Settings (bin/ts.env): HOST, an ~/.ssh/config alias; DB_REMOTE, the
+# database on the server; DB_LOCAL, the development one, relative to the root.
+#
+# Read-only by default. Poking at production is a normal thing to want to do
+# and dropping a table by accident is not, so the destructive case is the one
+# you have to ask for.
+#
+# The default grid does not truncate a wide JSON column, it wraps it into
+# ribbons: `--line` is the fix for a wide row, `--json` for a nested one.
+set -euo pipefail
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/common.sh"
+
+local_mode=false
+readonly_flag="-readonly"
+# Carried separately from the flag because the flag's *empty* value is the
+# dangerous one, and ${readonly_flag:-...} substitutes precisely then.
+access="read-only"
+sql=""
+mode="column"
+
+for arg in "$@"; do
+  case "$arg" in
+    --local) local_mode=true ;;
+    --write) readonly_flag=""; access="writable" ;;
+    --json) mode="json" ;;
+    --line) mode="line" ;;
+    -h|--help) usage; exit 0 ;;
+    # Anything else flag-shaped is a mistake, and must not be taken for the
+    # query. So SQL may not *begin* with a `--` comment.
+    -*) die "unknown flag: $arg (try --help)" ;;
+    *) sql="$arg" ;;
+  esac
+done
+
+# One spelling of the sqlite flags for every invocation, local and remote,
+# so they cannot drift apart.
+opts=(-header "-$mode" -cmd '.timeout 2000')
+remote_opts=$(printf ' %q' "${opts[@]}")
+
+# sqlite emits a JSON column as an escaped string; this decodes any value
+# that is itself JSON. `fromjson? // .`, not `try … catch .`, which binds the
+# error text into the value. Only for a one-shot query, and only with jq.
+DECODE='map(map_values((tostring | fromjson?) // .))'
+decoding=false
+if [ "$mode" = json ] && [ -n "$sql" ] && command -v jq >/dev/null 2>&1; then
+  decoding=true
+fi
+
+if $local_mode; then
+  need DB_LOCAL
+  db="$TS_ROOT/$DB_LOCAL"
+  [ -f "$db" ] || die "no local database at $db"
+  if [ -n "$sql" ]; then
+    if $decoding; then
+      sqlite3 $readonly_flag "${opts[@]}" "$db" "$sql" | jq "$DECODE"
+      exit
+    fi
+    exec sqlite3 $readonly_flag "${opts[@]}" "$db" "$sql"
+  fi
+  echo "→ local · $access"
+  exec sqlite3 $readonly_flag "${opts[@]}" "$db"
+fi
+
+need HOST DB_REMOTE
+if [ -n "$sql" ]; then
+  # The query goes over stdin, never into the command line: interpolated into
+  # a remote shell it is expanded before sqlite3 sees it, and no quoting
+  # fixes that. stdin is not shell syntax at all.
+  if $decoding; then
+    $SSH "$HOST" "sqlite3 $readonly_flag$remote_opts '$DB_REMOTE'" <<<"$sql" | jq "$DECODE"
+    exit
+  fi
+  exec $SSH "$HOST" "sqlite3 $readonly_flag$remote_opts '$DB_REMOTE'" <<<"$sql"
+fi
+
+echo "→ production · $access"
+exec ssh -t "$HOST" "sqlite3 $readonly_flag$remote_opts '$DB_REMOTE'"

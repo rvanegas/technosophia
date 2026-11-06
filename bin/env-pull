@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# Copies the service's .env off the server into the local copy.
+#
+#   ts env-pull       refuses if the local copy differs
+#   ts env-pull -f    takes the server's, keeping the local one as .bak
+#
+# Settings (bin/ts.env): HOST, an ~/.ssh/config alias; ENV_REMOTE, the file
+# on the server; ENV_LOCAL, the local copy, default
+# ~/.config/<project>/server.env.
+#
+# The local copy is the backup and the place a credential is authored: in a
+# file that can be backed up and diffed, mode 600, outside any tree a deploy
+# syncs with --delete, and outside git. `ts env-push` is the other direction.
+#
+# Values are never printed; what changed is reported by key name alone.
+set -euo pipefail
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/common.sh"
+
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+need HOST ENV_REMOTE
+LOCAL=${ENV_LOCAL:-$HOME/.config/$PROJECT/server.env}
+LOCAL=${LOCAL/#\~/$HOME}
+
+TMP=$(mktemp); chmod 600 "$TMP"; trap 'rm -f "$TMP"' EXIT
+
+echo "→ fetching $HOST:$ENV_REMOTE"
+remote "cat $ENV_REMOTE" > "$TMP"
+
+# An empty answer is what a missing file, a wrong path or a silently failed
+# ssh all look like, and writing it over the local copy would destroy the
+# thing this script exists to protect.
+[ -s "$TMP" ] || die "✗ came back empty — not overwriting $LOCAL"
+
+if [ -f "$LOCAL" ]; then
+  if cmp -s "$TMP" "$LOCAL"; then
+    echo "✓ already identical — $(env_names "$LOCAL" | wc -l | tr -d ' ') keys"
+    exit 0
+  fi
+  CHANGED=$(env_changed "$LOCAL" "$TMP")
+  echo "  differs in: ${CHANGED:-(comments or blank lines only)}"
+  # Pulling over local edits is how work gets lost quietly: the local file is
+  # the one somebody has just been typing in.
+  if [ "${1:-}" != "-f" ]; then
+    echo "✗ $LOCAL differs from the server and would be overwritten." >&2
+    echo "  ts env-push to send yours, or ts env-pull -f to take the server's." >&2
+    exit 1
+  fi
+  cp "$LOCAL" "$LOCAL.bak"
+  echo "  previous copy kept at $LOCAL.bak"
+fi
+
+mkdir -p "$(dirname "$LOCAL")"
+cp "$TMP" "$LOCAL"
+chmod 600 "$LOCAL"
+echo "✓ $LOCAL — $(env_names "$LOCAL" | wc -l | tr -d ' ') keys, mode 600"

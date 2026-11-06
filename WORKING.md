@@ -31,3 +31,35 @@ project pays for it.
   finding says when it was found, because what is true changes.
 - **Secrets are named, never written**: in documents, commits, logs, and
   command output alike.
+- **A commit subject opens with a verb**: Fixed, Added, Improved, Changed,
+  Removed; Bumped a build or version; Recorded a decision or deploy; Filed a
+  task or backlog item; Documented standing guidance. The list is a default,
+  not a cage: when none fits, use the best verb and propose adding it. The
+  body is prose and says why. History is not rewritten to match.
+- **Every commit a session writes carries two trailers**, `Co-Authored-By`
+  and `Claude-Session: https://claude.ai/code/session_<id>`, the
+  conversation the change was argued in. A commit says what changed and a
+  decision says why; neither reaches the transcript, where the rejected
+  approach and the question that reframed it are. Only a running session
+  knows its own URL, so nothing can add it afterwards.
+- **The tests are the record** of what is covered. A hand-kept table of
+  which test covers what duplicates the suite and goes stale faster than
+  the code.
+
+## Scripts
+
+`ts <name>` runs a project's `bin/<name>`, else technosophia's shared one,
+from anywhere in the project; `ts` alone lists them. Run them through `ts`,
+never by path.
+
+## Read when
+
+- `LANDING.md`: when asked to land, and when starting work in a worktree.
+- `PLANNING.md`: when filing, resolving or retiring a task, backlog item or
+  decision, or when a quoted title is in the request.
+- `INSTRUCTIONS.md`: when adding to the agent instructions file.
+- `SERVICES.md`: before changing a service's config, secrets, health,
+  deploy, or a call between services.
+- `CLIENTS.md`: before changing what an installed client and its server say
+  to each other, moving the compatibility floor, or uploading, submitting or
+  releasing a build.
