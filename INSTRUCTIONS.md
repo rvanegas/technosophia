@@ -14,9 +14,10 @@ split, and it decays quietly: the natural place to write down what just
 happened is the file already open.
 
 - **The cap is 20,000 bytes, in every project**, and no project sets its
-  own. The file states its current size in bytes. Correct that figure in
-  the same commit as any change to the file, or the rule governs against a
-  number nobody has checked.
+  own. `ts instructions check` measures it: a project's test suite runs it,
+  and so does `ts deploy`. The file states no figure of its own, since one
+  kept by hand goes stale and the rule then governs against a number nobody
+  has checked.
 - **What does not belong**, and is almost all of any excess:
   - *Deploy narrative.* What was deployed is `ts deploys`, what is running is
     `ts health`, and why is a dated decision if it needs saying.

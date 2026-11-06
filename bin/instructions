@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# Holds a project's CLAUDE.md to the cap every project shares.
+#
+#   ts instructions check           fails when CLAUDE.md passes 20,000 bytes
+#
+# The instructions file is loaded in full into every session, so its size is
+# paid for every time (INSTRUCTIONS.md). **The cap is measured, not written
+# down**: a figure kept in the file by hand goes stale, and then the rule
+# governs against a number nobody has checked. A project's test suite runs
+# this, and `ts deploy` runs it before anything else, so a file over the cap
+# fails the tests and the deploy alike.
+
+set -euo pipefail
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/common.sh"
+
+CAP=20000
+
+cmd_check() {
+  local f="$TS_ROOT/CLAUDE.md" size
+  [[ -f "$f" ]] || die "no CLAUDE.md at $TS_ROOT"
+  size=$(wc -c < "$f" | tr -d ' ')
+  if (( size > CAP )); then
+    echo "CLAUDE.md is $size bytes, over the cap of $CAP: move what one kind of work needs to its own document (technosophia's INSTRUCTIONS.md)" >&2
+    return 1
+  fi
+  echo "CLAUDE.md: $size bytes, within the cap of $CAP"
+}
+
+verb="${1:-}"
+shift || true
+case "$verb" in
+  check) cmd_check "$@" ;;
+  ''|-h|--help) usage ;;
+  *) die "no such verb '$verb' — one of check" ;;
+esac

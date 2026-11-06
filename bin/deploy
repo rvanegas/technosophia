@@ -75,6 +75,10 @@ if [ -n "$(git status --porcelain)" ] && ! $allow_dirty; then
   exit 1
 fi
 
+# The instructions file's cap holds in every project, whether or not its own
+# tests run the check.
+TS_ROOT="$TS_ROOT" "$(dirname "$TS_SELF")/instructions" check
+
 hook pre
 
 SHA=$(git rev-parse --short HEAD)
