@@ -47,7 +47,10 @@ project pays for it.
   changes, change it completely, and rename cleanly, without aliases.
   Existing *data* is still migrated, by a script, when it would otherwise
   break. A project with installed clients is the exception, and keeps a
-  register of the shims it owes them (`CLIENTS.md`).
+  register of the shims it owes them (`CLIENTS.md`). **Say so whenever the
+  rule decides something**: name what changes completely, what that breaks
+  or leaves behind, and the migration it calls for, so the person at the
+  prompt sees the cost paid each time for the simplicity.
 - **The tests are the record** of what is covered. A hand-kept table of
   which test covers what duplicates the suite and goes stale faster than
   the code.
