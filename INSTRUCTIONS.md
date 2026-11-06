@@ -1,7 +1,7 @@
 # Instructions
 
-How to keep a project's agent instructions (`CLAUDE.md`, `AGENTS.md`) worth
-their cost, and how to read large files. Read this when adding to the
+How to keep a project's agent instructions (`CLAUDE.md`) worth their
+cost, and how to read large files. Read this when adding to the
 instructions file, or when it passes its cap.
 
 ## The instructions file is paid for every session

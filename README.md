@@ -12,9 +12,13 @@ contrary.
 
 ## How a project adopts them
 
-A project's `CLAUDE.md` imports the core, which says when to read the rest:
+A project's `CLAUDE.md` imports the core, which says when to read the rest.
+The import is its first line, with nothing before it:
 
     @~/src/technosophia/WORKING.md
+
+The project's instructions follow in the same file. There is no `AGENTS.md`
+beside it: one file, read by the agent the practices are written for.
 
 Every practice here applies unless the project's own instructions say
 otherwise. An exception names the practice it departs from and says why.
