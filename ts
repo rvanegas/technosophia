@@ -4,6 +4,7 @@
 #
 #   ts                  list the commands, the project's first
 #   ts <name> [args]    run bin/<name> from the project, else the shared one
+#   ts --names          the command names alone, one per line, for completion
 #
 # The project is the git repository holding the current directory. Its own
 # bin/<name> wins over a shared one of the same name: that is how a project
@@ -37,6 +38,15 @@ list() {
     printf "  %-20s %s\n" "$name" "$(summary "$f")"
   done
 }
+
+# The same names as the listing, without the summaries; completion.bash
+# reads them, so a project's commands complete from inside that project.
+if [[ "${1:-}" == --names ]]; then
+  for f in ${root:+"$root/bin"/*} "$shared"/*; do
+    [[ -f "$f" && -x "$f" ]] && basename "$f"
+  done | awk '!seen[$0]++'
+  exit 0
+fi
 
 if [[ $# -eq 0 || "$1" == -h || "$1" == --help ]]; then
   if [[ -n "$root" && -d "$root/bin" ]]; then

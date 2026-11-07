@@ -33,6 +33,11 @@ already on PATH:
 `ts` finds the repository through the link, so pulling it updates the
 command.
 
+Bash completes the command names, the project's and the shared ones, once
+`~/.bashrc` sources the completion beside it:
+
+    source ~/src/technosophia/completion.bash
+
 `ts <name>` runs the project's own `bin/<name>` if there is one, else the
 shared `bin/<name>` here, with the project's root in `TS_ROOT`; `ts` alone
 lists both. A project's script wins: that is how it does something
@@ -59,3 +64,4 @@ them. Whatever belongs to one project stays in that project.
 | `SERVICES.md` | When changing a service's config, secrets, health, deploy, or a call between services |
 | `CLIENTS.md` | When a project ships an installed client: wire changes, the compatibility floor, store builds |
 | `ts`, `bin/`, `lib/` | The dispatcher, the shared scripts, and what they source |
+| `completion.bash` | Bash completion for `ts`, sourced from `~/.bashrc` |
