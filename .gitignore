@@ -1,0 +1,4 @@
+# git worktrees, which live inside the repo (LANDING.md § Worktrees). Each
+# holds its own .git file, so without this `git add -A` in the main checkout
+# stages one as an embedded repository.
+.claude/worktrees/

@@ -47,6 +47,13 @@ branch locally and on the origin.
 - **Never switch branches in the main checkout.** Other sessions commit
   there. Branch in a worktree, and before landing check that `master..branch`
   holds only your commits.
+- **A worktree lives inside its repository, at `.claude/worktrees/<branch>`**,
+  never in a directory beside it: `git worktree add -b <branch>
+  .claude/worktrees/<branch> master`. Inside, it is found from the checkout
+  it belongs to and goes when the repository does; beside, it reads as a
+  project of its own. **The path is gitignored in every project**, since each
+  worktree holds its own `.git` file, and `git add -A` in the main checkout
+  would otherwise stage it as an embedded repository.
 - **A fresh worktree has no dependencies: run `ts worktree-setup` in it
   first.** Git populates it with tracked files only, and the first test run
   fails as a missing command, which reads like a broken toolchain.
