@@ -61,8 +61,10 @@ const HOST = 'https://api.appstoreconnect.apple.com';
 // The field's cap, the same as What's New's.
 const LIMIT = 4000;
 
-const USER_FACING = /^(Fixed|Added|Improved|Changed|Removed|Bumped) /;
-const BOOKKEEPING = /^Bumped (the )?(build number|version)\b/;
+// The verb is followed by a space or by a colon: `Added a digest` and
+// `Added: a digest` are one convention, and both are in the history.
+const USER_FACING = /^(Fixed|Added|Improved|Changed|Removed|Bumped):? /;
+const BOOKKEEPING = /^Bumped:? (the )?(build number|version)\b/;
 
 // ---------------------------------------------------------------- arguments
 
