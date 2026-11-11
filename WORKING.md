@@ -63,7 +63,7 @@ never by path.
 
 ## Read when
 
-- `LANDING.md`: when asked to land, and when starting work in a worktree.
+- `LANDING.md`: before starting work on a branch, and when asked to land.
 - `PLANNING.md`: when filing, resolving or retiring a task, backlog item or
   decision, or when a quoted title is in the request.
 - `INSTRUCTIONS.md`: when adding to the agent instructions file.

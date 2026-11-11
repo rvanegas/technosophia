@@ -1,8 +1,8 @@
 # Landing
 
 The mechanics of *land*, once it has been asked for (`WORKING.md`), and of
-the worktrees work is done in. Read this when asked to land, and when
-starting work in a worktree.
+the worktrees work is done in. Read this before starting work on a branch,
+and when asked to land.
 
 ## Land: merge, push, clean up
 
