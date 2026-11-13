@@ -33,7 +33,8 @@ project pays for it.
   command output alike.
 - **A commit subject opens with a verb**: Fixed, Added, Improved, Changed,
   Removed; Bumped a build or version; Recorded a decision or deploy; Filed a
-  task or backlog item; Documented standing guidance. The list is a default,
+  task or backlog item; Planned a design into a task, with no code;
+  Documented standing guidance. The list is a default,
   not a cage: when none fits, use the best verb and propose adding it. The
   body is prose and says why. History is not rewritten to match.
 - **Every commit a session writes carries two trailers**, `Co-Authored-By`
