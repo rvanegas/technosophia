@@ -35,6 +35,19 @@ cd "$TS_ROOT"
 
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 
+# The worktree being set up is one `git add -A` in the main checkout would
+# stage, unless the project's own .gitignore says otherwise (LANDING.md §
+# Worktrees). A global or .git/info/exclude rule is one machine's, so only
+# .gitignore counts.
+for path in .claude/worktrees/ .claude/settings.local.json; do
+  source=$(git check-ignore -v --no-index "$path" | cut -d: -f1 || true)
+  if [ "$source" != .gitignore ]; then
+    echo "✗ .gitignore does not ignore $path" >&2
+    echo "  Add the block in technosophia's LANDING.md § Worktrees and commit it." >&2
+    exit 1
+  fi
+done
+
 if [ -n "${WORKTREE_PACKAGES:-}" ]; then
   read -r -a PACKAGES <<<"$WORKTREE_PACKAGES"
 else

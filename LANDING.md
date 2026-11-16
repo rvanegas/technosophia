@@ -51,9 +51,23 @@ branch locally and on the origin.
   never in a directory beside it: `git worktree add -b <branch>
   .claude/worktrees/<branch> master`. Inside, it is found from the checkout
   it belongs to and goes when the repository does; beside, it reads as a
-  project of its own. **The path is gitignored in every project**, since each
+  project of its own.
+- **Every project's committed `.gitignore` holds the same block**, since each
   worktree holds its own `.git` file, and `git add -A` in the main checkout
-  would otherwise stage it as an embedded repository.
+  would otherwise stage it as an embedded repository. A global or
+  `.git/info/exclude` rule does not count: it is one machine's, and a fresh
+  clone elsewhere has neither. `ts worktree-setup` refuses to run without it.
+
+  ```
+  # Claude Code's, per project (technosophia LANDING.md § Worktrees). A worktree
+  # holds its own .git file, which `git add -A` in the main checkout would stage
+  # as an embedded repository; settings.local.json is one person's permissions.
+  .claude/worktrees/
+  .claude/settings.local.json
+  ```
+
+  The rest of `.claude/` (`settings.json`, `skills/`) is the project's, and
+  committed.
 - **A fresh worktree has no dependencies: run `ts worktree-setup` in it
   first.** Git populates it with tracked files only, and the first test run
   fails as a missing command, which reads like a broken toolchain.
